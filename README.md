@@ -1,4 +1,4 @@
-# stopphone
+# stophone
 
 This application was created to prevent people from using their smartphones while walking.
 
