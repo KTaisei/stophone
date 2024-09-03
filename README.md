@@ -1,8 +1,12 @@
 # stopphone
 
-A new Flutter project.
+This application was created to prevent people from using their smartphones while walking.
 
-## Getting Started
+## system
+
+I am creating a program that uses the smartphone's acceleration sensor and GPS in the background, performs calculations, and displays the screen. When the app detects that you are walking at a speed of 2-5km/h, the app will launch and display the message "Don't use phone."
+
+### Getting Started
 
 This project is a starting point for a Flutter application.
 
