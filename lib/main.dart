@@ -3,20 +3,20 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:sensors_plus/sensors_plus.dart';
-import 'package:flutter_foreground_task/flutter_foreground_task.dart';
+import 'package:flutter_background/flutter_background.dart' as fb;
 
 void main() {
-  runApp(const WalkingPhoneApp());
+  runApp(const _WalkingPhoneApp());
 }
 
-class WalkingPhoneApp extends StatefulWidget {
-  const WalkingPhoneApp({super.key});
+class _WalkingPhoneApp extends StatefulWidget {
+  const _WalkingPhoneApp();
 
   @override
   _WalkingPhoneAppState createState() => _WalkingPhoneAppState();
 }
 
-class _WalkingPhoneAppState extends State<WalkingPhoneApp> {
+class _WalkingPhoneAppState extends State<_WalkingPhoneApp> {
   double _speed = 0.0;
   late StreamSubscription<Position> _positionSubscription;
   late StreamSubscription<UserAccelerometerEvent> _accelerometerSubscription;
@@ -25,36 +25,33 @@ class _WalkingPhoneAppState extends State<WalkingPhoneApp> {
   @override
   void initState() {
     super.initState();
-    _initializeForegroundTask();
+    _initializeBackgroundTask();
     _initializeLocationService();
     _startAccelerometer();
   }
 
-  void _initializeForegroundTask() {
-    FlutterForegroundTask.init(
-      androidNotificationOptions: AndroidNotificationOptions(
-        channelId: 'walking_notification',
-        channelName: 'Walking Phone Alert',
-        channelDescription: 'Alerts when you are walking and using your phone.',
-        channelImportance: NotificationChannelImportance.MAX,
-        priority: NotificationPriority.MAX,
-        iconData: const NotificationIconData(
-          resType: ResourceType.mipmap,
-          resPrefix: ResourcePrefix.ic,
-          name: 'launcher',
-        ),
-      ),
-      iosNotificationOptions: const IOSNotificationOptions(
-        showNotification: true,
-        playSound: false,
+  void _initializeBackgroundTask() async {
+    // 正しい定数名を使用する
+    const androidConfig = fb.FlutterBackgroundAndroidConfig(
+      notificationTitle: "Walking Phone Alert",
+      notificationText: "Monitoring your movement...",
+      notificationImportance:
+          fb.AndroidNotificationImportance.high, // 例: 'default' の代わりに 'high'
+      notificationIcon: fb.AndroidResource(
+        name: 'background_icon',
+        defType: 'drawable',
       ),
     );
 
-    FlutterForegroundTask.startService(
-      notificationTitle: 'Walking Phone App',
-      notificationText: 'Monitoring your speed...',
-      callback: startCallback,
-    );
+    // 背景タスクの初期化
+    bool hasPermissions = await fb.FlutterBackground.hasPermissions;
+    if (!hasPermissions) {
+      bool success =
+          await fb.FlutterBackground.initialize(androidConfig: androidConfig);
+      if (success) {
+        fb.FlutterBackground.enableBackgroundExecution();
+      }
+    }
   }
 
   void _initializeLocationService() async {
@@ -97,7 +94,7 @@ class _WalkingPhoneAppState extends State<WalkingPhoneApp> {
   }
 
   void _startAccelerometer() {
-    _accelerometerSubscription = userAccelerometerEvents.listen((event) {
+    _accelerometerSubscription = userAccelerometerEventStream().listen((event) {
       double calculatedSpeed = _calculateSpeed(event);
       if (calculatedSpeed > 0) {
         _isMovingAtWalkingSpeed = true;
@@ -110,7 +107,6 @@ class _WalkingPhoneAppState extends State<WalkingPhoneApp> {
   }
 
   double _calculateSpeed(UserAccelerometerEvent event) {
-    // シンプルな加速度から速度を推定するロジック
     double magnitude =
         sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
     return magnitude;
@@ -133,6 +129,7 @@ class _WalkingPhoneAppState extends State<WalkingPhoneApp> {
   void dispose() {
     _positionSubscription.cancel();
     _accelerometerSubscription.cancel();
+    fb.FlutterBackground.disableBackgroundExecution();
     super.dispose();
   }
 
@@ -155,35 +152,18 @@ class WarningScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return const Scaffold(
       body: Center(
         child: Text(
           'Stop using your phone while walking!',
-          style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.red),
+          style: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            color: Colors.red,
+          ),
           textAlign: TextAlign.center,
         ),
       ),
     );
   }
 }
-
-void startCallback() {
-  FlutterForegroundTask.setTaskHandler(MyTaskHandler());
-}
-
-class MyTaskHandler extends TaskHandler {
-  @override
-  Future<void> onStart(DateTime timestamp, SendPort? sendPort) async {}
-
-  @override
-  Future<void> onEvent(DateTime timestamp, SendPort? sendPort) async {}
-
-  @override
-  Future<void> onDestroy(DateTime timestamp, SendPort? sendPort) async {}
-
-  @override
-  void onNotificationPressed() {
-    FlutterForegroundTask.launchApp("");
-  }
-}
-
