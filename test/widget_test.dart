@@ -8,12 +8,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:stopphone/main.dart';
+import 'package:stopphone/main.dart'; //多分main.dartのパス通したら、動くはずなんよ
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const _WalkingPhoneApp());
+    await tester.pumpWidget(const _WalkingPhoneApp()); //MyAppじゃないとエラー直らない？
 
     // Verify that our counter starts at 0.
     expect(find.text('0'), findsOneWidget);
