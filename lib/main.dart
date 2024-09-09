@@ -6,17 +6,17 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'package:flutter_background/flutter_background.dart' as fb;
 
 void main() {
-  runApp(const _WalkingPhoneApp());
+  runApp(const WalkingPhoneApp());
 }
 
-class _WalkingPhoneApp extends StatefulWidget {
-  const _WalkingPhoneApp();
+class WalkingPhoneApp extends StatefulWidget {
+  const WalkingPhoneApp();
 
   @override
-  _WalkingPhoneAppState createState() => _WalkingPhoneAppState();
+  WalkingPhoneAppState createState() => WalkingPhoneAppState();
 }
 
-class _WalkingPhoneAppState extends State<_WalkingPhoneApp> {
+class WalkingPhoneAppState extends State<WalkingPhoneApp> {
   double _speed = 0.0;
   late StreamSubscription<Position> _positionSubscription;
   late StreamSubscription<UserAccelerometerEvent> _accelerometerSubscription;

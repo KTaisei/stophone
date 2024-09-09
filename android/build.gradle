@@ -5,6 +5,9 @@ allprojects {
     }
 }
 
+// android/build.gradle
+ext.kotlin_version = '2.0.20' // 最新のバージョンに更新
+
 rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
