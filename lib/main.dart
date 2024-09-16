@@ -10,7 +10,7 @@ void main() {
 }
 
 class WalkingPhoneApp extends StatefulWidget {
-  const WalkingPhoneApp();
+  const WalkingPhoneApp({super.key});
 
   @override
   WalkingPhoneAppState createState() => WalkingPhoneAppState();
