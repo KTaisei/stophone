@@ -25,7 +25,9 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
   late StreamSubscription<Position> _positionSubscription;
   late StreamSubscription<UserAccelerometerEvent> _accelerometerSubscription;
   bool _isMovingAtWalkingSpeed = false;
-  int _warningCount = 0; // 警告が表示された回数を記録するための変数
+  int _warningCount = 0;
+  Timer? _screenTimer;
+  bool _screenOnForMoreThanOneMinute = false;
 
   @override
   void initState() {
@@ -33,6 +35,7 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
     _initializeBackgroundTask();
     _initializeLocationService();
     _startAccelerometer();
+    _startScreenTimer();
   }
 
   void _initializeBackgroundTask() async {
@@ -49,7 +52,7 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
     bool hasPermissions = await fb.FlutterBackground.hasPermissions;
     if (!hasPermissions) {
       bool success =
-          await fb.FlutterBackground.initialize(androidConfig: androidConfig);
+      await fb.FlutterBackground.initialize(androidConfig: androidConfig);
       if (success) {
         fb.FlutterBackground.enableBackgroundExecution();
       }
@@ -80,19 +83,13 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
 
     _positionSubscription =
         Geolocator.getPositionStream().listen((Position position) {
-      double speedKmh = position.speed * 3.6;
-      setState(() {
-        _speed = speedKmh;
-      });
+          double speedKmh = position.speed * 3.6;
+          setState(() {
+            _speed = speedKmh;
+          });
 
-      if (_speed >= 2.0 && _speed <= 5.0) {
-        _isMovingAtWalkingSpeed = true;
-      } else {
-        _isMovingAtWalkingSpeed = false;
-      }
-
-      _checkConditions();
-    });
+          _checkConditions();
+        });
   }
 
   void _startAccelerometer() {
@@ -110,13 +107,31 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
 
   double _calculateSpeed(UserAccelerometerEvent event) {
     double magnitude =
-        sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
+    sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
     return magnitude;
   }
 
+  void _startScreenTimer() {
+    // 画面が1分以上点灯しているかを確認するためのタイマーを開始
+    _screenTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (timer.tick >= 60) {
+        setState(() {
+          _screenOnForMoreThanOneMinute = true;
+        });
+      }
+    });
+  }
+
   void _checkConditions() {
-    if (_isMovingAtWalkingSpeed) {
+    if (_speed >= 3.0 && _speed <= 5.0 && _screenOnForMoreThanOneMinute) {
+      // 速度が3~5km/hかつ画面が1分以上点灯している場合に警告
       _showWarningScreen();
+    } else if (_speed >= 1.0 && _speed < 3.0) {
+      // 速度が1~3km/hの場合は警告を出さない
+      return;
+    } else if (_speed >= 3.0 && _speed <= 5.0 && !_screenOnForMoreThanOneMinute) {
+      // 速度が3~5km/hだが、画面が1分以上点灯していない場合も警告を出さない
+      return;
     }
   }
 
@@ -135,6 +150,7 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
   void dispose() {
     _positionSubscription.cancel();
     _accelerometerSubscription.cancel();
+    _screenTimer?.cancel(); // タイマーもキャンセル
     fb.FlutterBackground.disableBackgroundExecution();
     super.dispose();
   }
