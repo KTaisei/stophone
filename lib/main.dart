@@ -6,7 +6,11 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'package:flutter_background/flutter_background.dart' as fb;
 
 void main() {
-  runApp(const WalkingPhoneApp());
+  runApp(
+    const MaterialApp(
+      home: WalkingPhoneApp(),
+    ),
+  );
 }
 
 class WalkingPhoneApp extends StatefulWidget {
@@ -21,6 +25,7 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
   late StreamSubscription<Position> _positionSubscription;
   late StreamSubscription<UserAccelerometerEvent> _accelerometerSubscription;
   bool _isMovingAtWalkingSpeed = false;
+  int _warningCount = 0; // 警告が表示された回数を記録するための変数
 
   @override
   void initState() {
@@ -31,19 +36,16 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
   }
 
   void _initializeBackgroundTask() async {
-    // 正しい定数名を使用する
     const androidConfig = fb.FlutterBackgroundAndroidConfig(
       notificationTitle: "Walking Phone Alert",
       notificationText: "Monitoring your movement...",
-      notificationImportance:
-          fb.AndroidNotificationImportance.high, // 例: 'default' の代わりに 'high'
+      notificationImportance: fb.AndroidNotificationImportance.high,
       notificationIcon: fb.AndroidResource(
         name: 'background_icon',
         defType: 'drawable',
       ),
     );
 
-    // 背景タスクの初期化
     bool hasPermissions = await fb.FlutterBackground.hasPermissions;
     if (!hasPermissions) {
       bool success =
@@ -78,7 +80,7 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
 
     _positionSubscription =
         Geolocator.getPositionStream().listen((Position position) {
-      double speedKmh = position.speed * 3.6; // m/sからkm/hへ変換
+      double speedKmh = position.speed * 3.6;
       setState(() {
         _speed = speedKmh;
       });
@@ -119,6 +121,10 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
   }
 
   void _showWarningScreen() {
+    setState(() {
+      _warningCount++; // 警告が表示されるたびにカウントを増やす
+    });
+
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => const WarningScreen(),
       fullscreenDialog: true,
@@ -137,10 +143,21 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Center(
-        child: Text(
-          'Speed: ${_speed.toStringAsFixed(2)} km/h\nMonitoring...',
-          style: const TextStyle(fontSize: 24),
-          textAlign: TextAlign.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Speed: ${_speed.toStringAsFixed(2)} km/h\nMonitoring...',
+              style: const TextStyle(fontSize: 24),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Warning count: $_warningCount', // 警告が表示された回数を表示
+              style: const TextStyle(fontSize: 24),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );
