@@ -127,7 +127,7 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
   }
 
   void _checkConditions() {
-    if (_speed >= 3.0 && _speed <= 5.0 && _screenOnForMoreThanOneMinute) {
+    if (_isMovingAtWalkingSpeed && _speed >= 3.0 && _speed <= 5.0 && _screenOnForMoreThanOneMinute) {
       // 速度が3~5km/hかつ画面が1分以上点灯している場合に警告
       _showWarningScreen();
     } else if (_speed >= 1.0 && _speed < 3.0) {
