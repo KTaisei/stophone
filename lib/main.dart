@@ -4,13 +4,29 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:flutter_background/flutter_background.dart' as fb;
+import 'package:logging/logging.dart';
 
 void main() {
+  // ログの設定を行う
+  _setupLogging();
+
   runApp(
     const MaterialApp(
       home: WalkingPhoneApp(),
     ),
   );
+}
+
+// ログ設定関数
+void _setupLogging() {
+  // すべてのログレベル（ALL）を記録
+  Logger.root.level = Level.ALL;
+  Logger.root.onRecord.listen((LogRecord record) {
+    // ここでログの表示方法をカスタマイズ
+    // 例: コンソールに表示、またはファイルに保存
+    debugPrint(
+        '${record.level.name}: ${record.time}: ${record.loggerName}: ${record.message}');
+  });
 }
 
 class WalkingPhoneApp extends StatefulWidget {
@@ -21,6 +37,7 @@ class WalkingPhoneApp extends StatefulWidget {
 }
 
 class WalkingPhoneAppState extends State<WalkingPhoneApp> {
+  final Logger _logger = Logger('WalkingPhoneAppState'); // ロガーインスタンス
   double _speed = 0.0;
   late StreamSubscription<Position> _positionSubscription;
   late StreamSubscription<UserAccelerometerEvent> _accelerometerSubscription;
@@ -38,10 +55,11 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
     _startScreenTimer();
   }
 
+  // 背景タスクの初期化
   void _initializeBackgroundTask() async {
     const androidConfig = fb.FlutterBackgroundAndroidConfig(
       notificationTitle: "Walking Phone Alert",
-      notificationText: "Monitoring your movement...",
+      notificationText: "あなたの移動を監視中...",
       notificationImportance: fb.AndroidNotificationImportance.high,
       notificationIcon: fb.AndroidResource(
         name: 'background_icon',
@@ -55,16 +73,21 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
           await fb.FlutterBackground.initialize(androidConfig: androidConfig);
       if (success) {
         fb.FlutterBackground.enableBackgroundExecution();
+        _logger.info('バックグラウンド実行が有効化されました');
+      } else {
+        _logger.warning('バックグラウンド実行の有効化に失敗しました');
       }
     }
   }
 
+  // 位置情報サービスの初期化
   void _initializeLocationService() async {
     bool serviceEnabled;
     LocationPermission permission;
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
+      _logger.severe('位置情報サービスが無効です');
       return Future.error('Location services are disabled.');
     }
 
@@ -72,37 +95,34 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
+        _logger.warning('位置情報の許可が拒否されました');
         return Future.error('Location permissions are denied');
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
+      _logger.severe('位置情報の許可が永久に拒否されています');
       return Future.error(
           'Location permissions are permanently denied, we cannot request permissions.');
     }
 
-    LocationSettings locationSettings = const LocationSettings(
-      accuracy: LocationAccuracy.best, // 最高精度の位置情報
-      distanceFilter: 1, // 1メートル移動ごとに位置情報を更新
-    );
-
     _positionSubscription =
-        Geolocator.getPositionStream(locationSettings: locationSettings)
-            .listen((Position position) {
+        Geolocator.getPositionStream().listen((Position position) {
       double speedKmh = position.speed * 3.6;
-      print("Speed: $speedKmh km/h"); // デバッグ用ログ
       setState(() {
         _speed = speedKmh;
       });
 
       _checkConditions();
+      _logger.info('現在の速度: ${speedKmh.toStringAsFixed(2)} km/h');
     });
   }
 
   void _startAccelerometer() {
     _accelerometerSubscription = userAccelerometerEventStream().listen((event) {
       double calculatedSpeed = _calculateSpeed(event);
-      print('Calculated Accelerometer Speed: $calculatedSpeed'); // デバッグ用ログ
+      _logger
+          .info('Calculated Accelerometer Speed: $calculatedSpeed'); // デバッグ用ログ
 
       setState(() {
         _isMovingAtWalkingSpeed = calculatedSpeed > 0;
