@@ -17,10 +17,6 @@ class WalkingPhoneApp extends StatefulWidget {
   const WalkingPhoneApp({super.key});
 
   @override
-
-
-
-  
   WalkingPhoneAppState createState() => WalkingPhoneAppState();
 }
 
@@ -56,7 +52,7 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
     bool hasPermissions = await fb.FlutterBackground.hasPermissions;
     if (!hasPermissions) {
       bool success =
-      await fb.FlutterBackground.initialize(androidConfig: androidConfig);
+          await fb.FlutterBackground.initialize(androidConfig: androidConfig);
       if (success) {
         fb.FlutterBackground.enableBackgroundExecution();
       }
@@ -85,25 +81,32 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
           'Location permissions are permanently denied, we cannot request permissions.');
     }
 
-    _positionSubscription =
-        Geolocator.getPositionStream().listen((Position position) {
-          double speedKmh = position.speed * 3.6;
-          setState(() {
-            _speed = speedKmh;
-          });
+    LocationSettings locationSettings = const LocationSettings(
+      accuracy: LocationAccuracy.best, // 最高精度の位置情報
+      distanceFilter: 1, // 1メートル移動ごとに位置情報を更新
+    );
 
-          _checkConditions();
-        });
+    _positionSubscription =
+        Geolocator.getPositionStream(locationSettings: locationSettings)
+            .listen((Position position) {
+      double speedKmh = position.speed * 3.6;
+      print("Speed: $speedKmh km/h"); // デバッグ用ログ
+      setState(() {
+        _speed = speedKmh;
+      });
+
+      _checkConditions();
+    });
   }
 
   void _startAccelerometer() {
     _accelerometerSubscription = userAccelerometerEventStream().listen((event) {
       double calculatedSpeed = _calculateSpeed(event);
-      if (calculatedSpeed > 0) {
-        _isMovingAtWalkingSpeed = true;
-      } else {
-        _isMovingAtWalkingSpeed = false;
-      }
+      print('Calculated Accelerometer Speed: $calculatedSpeed'); // デバッグ用ログ
+
+      setState(() {
+        _isMovingAtWalkingSpeed = calculatedSpeed > 0;
+      });
 
       _checkConditions();
     });
@@ -111,12 +114,13 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
 
   double _calculateSpeed(UserAccelerometerEvent event) {
     double magnitude =
-    sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
+        sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
     return magnitude;
   }
 
   void _startScreenTimer() {
-    // 画面が1分以上点灯しているかを確認するためのタイマーを開始
+    _screenTimer?.cancel(); // タイマーをリセット
+    _screenOnForMoreThanOneMinute = false; // 初期状態をリセット
     _screenTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (timer.tick >= 60) {
         setState(() {
@@ -127,13 +131,18 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
   }
 
   void _checkConditions() {
-    if (_isMovingAtWalkingSpeed && _speed >= 3.0 && _speed <= 5.0 && _screenOnForMoreThanOneMinute) {
+    if (_isMovingAtWalkingSpeed &&
+        _speed >= 3.0 &&
+        _speed <= 5.0 &&
+        _screenOnForMoreThanOneMinute) {
       // 速度が3~5km/hかつ画面が1分以上点灯している場合に警告
       _showWarningScreen();
     } else if (_speed >= 1.0 && _speed < 3.0) {
       // 速度が1~3km/hの場合は警告を出さない
       return;
-    } else if (_speed >= 3.0 && _speed <= 5.0 && !_screenOnForMoreThanOneMinute) {
+    } else if (_speed >= 3.0 &&
+        _speed <= 5.0 &&
+        !_screenOnForMoreThanOneMinute) {
       // 速度が3~5km/hだが、画面が1分以上点灯していない場合も警告を出さない
       return;
     }
@@ -173,7 +182,13 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
             ),
             const SizedBox(height: 20),
             Text(
-              'Warning count: $_warningCount', // 警告が表示された回数を表示
+              'Is Moving at Walking Speed: $_isMovingAtWalkingSpeed', // 移動状態を表示
+              style: const TextStyle(fontSize: 24),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Warning count: $_warningCount', // 警告回数の表示
               style: const TextStyle(fontSize: 24),
               textAlign: TextAlign.center,
             ),
