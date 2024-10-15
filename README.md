@@ -1,7 +1,7 @@
 # stophone
 
 This application was created to prevent people from using their smartphones while walking.
-Still in development and not perfect code.
+### Still in development and not perfect code.
 
 ## system
 
