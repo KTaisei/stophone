@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:flutter_background/flutter_background.dart' as fb;
-import 'package:logger/logger.dart'; // ログ用パッケージ
 
 void main() {
   runApp(
@@ -22,9 +21,9 @@ class WalkingPhoneApp extends StatefulWidget {
 }
 
 class WalkingPhoneAppState extends State<WalkingPhoneApp> {
-  final Logger _logger = Logger(); // ロガーインスタンス
-
   double _speed = 0.0;
+  double _previousMagnitude = 0.0;
+  double _calculatedSpeed = 0.0; // 加速度から推定した速度
   late StreamSubscription<Position> _positionSubscription;
   late StreamSubscription<UserAccelerometerEvent> _accelerometerSubscription;
   bool _isMovingAtWalkingSpeed = false;
@@ -36,13 +35,11 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
   void initState() {
     super.initState();
     _initializeBackgroundTask();
-    _checkLocationService(); // 新しいサービスチェック関数
-    _requestLocationPermission(); // 許可をリクエストする部分を分離
+    _initializeLocationService();
     _startAccelerometer();
     _startScreenTimer();
   }
 
-  // 背景タスクの初期化
   void _initializeBackgroundTask() async {
     const androidConfig = fb.FlutterBackgroundAndroidConfig(
       notificationTitle: "Walking Phone Alert",
@@ -56,124 +53,110 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
 
     bool hasPermissions = await fb.FlutterBackground.hasPermissions;
     if (!hasPermissions) {
-      bool success =
-          await fb.FlutterBackground.initialize(androidConfig: androidConfig);
+      bool success = await fb.FlutterBackground.initialize(androidConfig: androidConfig);
       if (success) {
         fb.FlutterBackground.enableBackgroundExecution();
-        _logger.i("Background execution enabled.");
       }
     }
   }
 
-  // 位置情報サービスの確認
-  void _checkLocationService() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      _logger.w("Location services are disabled.");
-      return;
-    }
-    _initializeLocationService();
-  }
-
-  // 位置情報許可のリクエストと確認
-  void _requestLocationPermission() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        _logger.w("Location permissions are denied.");
+  void _initializeLocationService() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        print('位置情報サービスが無効です');
         return;
       }
-    }
 
-    if (permission == LocationPermission.deniedForever) {
-      _logger.e("Location permissions are permanently denied.");
-      return;
-    }
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          print('位置情報の権限が拒否されました');
+          return;
+        }
+      }
 
-    _logger.i("Location permission granted.");
-    _initializeLocationService();
-  }
+      if (permission == LocationPermission.deniedForever) {
+        print('位置情報の権限が恒久的に拒否されています');
+        return;
+      }
 
-  // 位置情報サービスの初期化と監視
-  void _initializeLocationService() {
-    _positionSubscription = Geolocator.getPositionStream().listen(
-      (Position position) {
+      print('位置情報サービスと権限が有効です');
+      _positionSubscription = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 1,
+        ),
+      ).listen((Position position) {
         double speedKmh = position.speed * 3.6;
         setState(() {
           _speed = speedKmh;
         });
 
-        _logger.i("Current speed: $_speed km/h");
+        print('位置情報取得: 緯度: ${position.latitude}, 経度: ${position.longitude}, 速度: $_speed km/h');
         _checkConditions();
-      },
-      onError: (e) {
-        _logger.e("Error in location stream: $e");
-      },
-    );
-  }
-
-  // 加速度センサーの初期化
-  void _startAccelerometer() {
-    _accelerometerSubscription = userAccelerometerEvents.listen(
-      (event) {
-        double calculatedSpeed = _calculateSpeed(event);
-        _isMovingAtWalkingSpeed = calculatedSpeed > 0;
-
-        _logger.i("Accelerometer event: ${event.toString()}");
-        _checkConditions();
-      },
-    );
-  }
-
-  // 加速度から速度を計算
-  double _calculateSpeed(UserAccelerometerEvent event) {
-    return sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
-  }
-
-  // 画面タイマーの開始
-  void _startScreenTimer() {
-    _screenTimer = Timer.periodic(
-      const Duration(seconds: 1),
-      (timer) {
-        if (timer.tick >= 60) {
-          setState(() {
-            _screenOnForMoreThanOneMinute = true;
-          });
-          _logger.i("Screen has been on for more than one minute.");
-        }
-      },
-    );
-  }
-
-  // 条件チェック
-  void _checkConditions() {
-    if (_isMovingAtWalkingSpeed &&
-        _speed >= 3.0 &&
-        _speed <= 5.0 &&
-        _screenOnForMoreThanOneMinute) {
-      _showWarningScreen();
+      });
+    } catch (e) {
+      print('位置情報の初期化でエラー: $e');
     }
   }
 
-  // 警告画面の表示
+  void _startAccelerometer() {
+    _accelerometerSubscription = userAccelerometerEvents.listen((event) {
+      double calculatedSpeed = _calculateSpeed(event);
+      print('加速度からの推定速度: ${calculatedSpeed.toStringAsFixed(2)} m/s²');
+
+      _isMovingAtWalkingSpeed = calculatedSpeed > 0.1; // 微小な変化を無視
+      _checkConditions();
+    });
+  }
+
+  double _calculateSpeed(UserAccelerometerEvent event) {
+    double magnitude = sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
+    double delta = magnitude - _previousMagnitude;
+
+    if (delta.abs() > 0.1) {
+      _calculatedSpeed += delta;
+    }
+
+    _previousMagnitude = magnitude;
+    return _calculatedSpeed;
+  }
+
+  void _startScreenTimer() {
+    _screenTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (timer.tick >= 60) {
+        setState(() {
+          _screenOnForMoreThanOneMinute = true;
+        });
+      }
+    });
+  }
+
+  void _checkConditions() {
+    print('現在の速度: $_speed km/h, 推定速度: ${_calculatedSpeed.toStringAsFixed(2)}');
+
+    if (_isMovingAtWalkingSpeed && _speed >= 3.0 && _speed <= 5.0 && _screenOnForMoreThanOneMinute) {
+      _showWarningScreen();
+    } else if (_speed >= 1.0 && _speed < 3.0) {
+      return;
+    } else if (_speed >= 3.0 && _speed <= 5.0 && !_screenOnForMoreThanOneMinute) {
+      return;
+    }
+  }
+
   void _showWarningScreen() {
     setState(() {
       _warningCount++;
     });
 
-    _logger.w("Warning count: $_warningCount");
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const WarningScreen(),
-        fullscreenDialog: true,
-      ),
-    );
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => const WarningScreen(),
+      fullscreenDialog: true,
+    ));
   }
 
-  // リソースの解放
   @override
   void dispose() {
     _positionSubscription.cancel();
@@ -191,13 +174,13 @@ class WalkingPhoneAppState extends State<WalkingPhoneApp> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'Speed: ${_speed.toStringAsFixed(2)} km/h\nMonitoring...',
+              '速度: ${_speed.toStringAsFixed(2)} km/h\n監視中...',
               style: const TextStyle(fontSize: 24),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
             Text(
-              'Warning count: $_warningCount',
+              '警告回数: $_warningCount',
               style: const TextStyle(fontSize: 24),
               textAlign: TextAlign.center,
             ),
@@ -216,7 +199,7 @@ class WarningScreen extends StatelessWidget {
     return const Scaffold(
       body: Center(
         child: Text(
-          'Stop using your phone while walking!',
+          '歩きスマホをやめてください！',
           style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.bold,
