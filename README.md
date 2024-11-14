@@ -5,7 +5,12 @@ This application was created to prevent people from using their smartphones whil
 
 ## system
 
-I am creating a program that uses the smartphone's acceleration sensor in the background, performs calculations, and displays the screen. When the app detects that you are walking at a speed of 3-5km/h, the app will launch and display the message "Don't use phone."
+・Information obtained from the smartphone's acceleration sensor
+
+・Proprietary algorithm
+
+Using these, the app detects when you are walking while using your smartphone
+and warns you when you are walking while using your smartphone.
 
 ## Getting Started
 
