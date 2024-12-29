@@ -10,7 +10,7 @@ void main() {
 }
 
 class WalkingPhoneDetectionApp extends StatefulWidget {
-  const WalkingPhoneDetectionApp({Key? key}) : super(key: key);
+  const WalkingPhoneDetectionApp({super.key});
 
   @override
   _WalkingPhoneDetectionAppState createState() =>
@@ -18,10 +18,10 @@ class WalkingPhoneDetectionApp extends StatefulWidget {
 }
 
 class _WalkingPhoneDetectionAppState extends State<WalkingPhoneDetectionApp> {
-  List<double> _accelMagnitudes = [];
+  final List<double> _accelMagnitudes = [];
   bool _isWalking = false;
   bool _isUsingPhoneWhileWalking = false;
-  double _sensitivity = 0.3;
+  final double _sensitivity = 0.3;
   Timer? _detectionTimer;
   static const int detectionInterval = 500;
   int _warningCount = 0;
@@ -102,7 +102,7 @@ class _WalkingPhoneDetectionAppState extends State<WalkingPhoneDetectionApp> {
   // 一定間隔で歩きスマホを検知
   void _startDetectionTimer() {
     _detectionTimer =
-        Timer.periodic(Duration(milliseconds: detectionInterval), (timer) {
+        Timer.periodic(const Duration(milliseconds: detectionInterval), (timer) {
           _detectWalking();
           _detectPhoneUsageWhileWalking();
           setState(() {});
