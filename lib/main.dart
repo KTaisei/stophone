@@ -118,7 +118,7 @@ class _WalkingPhoneDetectionAppState extends State<WalkingPhoneDetectionApp> {
       totalVariation += (_accelMagnitudes[i] - _accelMagnitudes[i - 1]).abs();
     }
     double averageVariation = totalVariation / _accelMagnitudes.length;
-    _isWalking = averageVariation > 0.5 && averageVariation < 2.5;
+    _isWalking = averageVariation > 1.9 && averageVariation < 12.0;
   }
 
   // 歩行中のスマホ使用検知
