@@ -53,7 +53,7 @@
 セキュリティに関する問い合わせは、以下の方法でご連絡ください：
 
 - メールアドレス: [クリックしてください](mathlike.science@gmail.com)
-- 開発者公式サイト: [https://ktaisei.github.io/official/contact](https://ktaisei.github.io/official/contact/)
+- 開発者公式サイト: [https://ktaisei.xsrv.jp/official](https://ktaisei.xsrv.jp/official)
 
 ## 貢献者へのお願い
 
